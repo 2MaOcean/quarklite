@@ -26,7 +26,7 @@ class DownloadService {
   }) async {
     try {
       var client = await GopeedEngine.ensureStarted();
-      final dir = path ?? await AppState.I.effectiveDownloadDir();
+      final dir = await _resolveDir(path);
       final app = AppState.I;
       final actualConnections =
           connections ?? app.effectiveConnections(batchTotal, maxPerTask: maxConnections);
@@ -71,6 +71,32 @@ class DownloadService {
   /// 日志脱敏：URL 只保留前 120 字符，避免直链签名参数刷屏
   static String _briefUrl(String url) =>
       url.length <= 120 ? url : '${url.substring(0, 120)}…(${url.length})';
+
+  /// 计算任务下载目录。
+  ///
+  /// 本机模式：使用调用方给定目录或应用默认下载目录。
+  /// 远程 Gopeed 模式（「发送到 Gopeed」开启）：
+  /// - 批量下载传入的是本机目录（本机基目录/网盘相对路径），
+  ///   先剥离本机基目录前缀，只保留网盘内的相对结构；
+  /// - 再拼到设置里的远程下载目录后面，未设置远程目录时由
+  ///   远程 Gopeed 使用自身默认下载目录（path 传空）。
+  static Future<String> _resolveDir(String? path) async {
+    if (!GopeedEngine.usingRemote) {
+      return path ?? await AppState.I.effectiveDownloadDir();
+    }
+    final remoteDir = AppState.I.gopeedRemoteDir.trim();
+    if (path == null || path.isEmpty) return remoteDir;
+    final base = await AppState.I.effectiveDownloadDir();
+    var rel = path;
+    if (rel.startsWith('$base/')) {
+      rel = rel.substring(base.length + 1);
+    } else if (rel == base) {
+      rel = '';
+    }
+    if (remoteDir.isEmpty) return rel;
+    if (rel.isEmpty) return remoteDir;
+    return remoteDir.endsWith('/') ? '$remoteDir$rel' : '$remoteDir/$rel';
+  }
 
   /// 创建 Gopeed 下载任务（附带下载请求头）
   static Future<void> _createTask(
@@ -121,11 +147,12 @@ class DownloadService {
     required String url,
     String? name,
   }) async {
-    if (!kIsWeb && Platform.isIOS) {
-      return 'iOS 暂不支持磁力/BT下载';
-    }
     try {
       var client = await GopeedEngine.ensureStarted();
+      // iOS 本机下载器不支持 BT；开启「发送到 Gopeed」后由远程 Gopeed 下载
+      if (!kIsWeb && Platform.isIOS && !GopeedEngine.usingRemote) {
+        return 'iOS 暂不支持磁力/BT下载（可在「我的 → 发送到 Gopeed」开启远程转发）';
+      }
       final dir = await AppState.I.effectiveDownloadDir();
       AppLogger.I.i('download', '创建 BT 任务 name=${name ?? ''} dir=$dir');
       try {

@@ -11,6 +11,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../api/quark_client.dart';
 import '../api/quark_models.dart';
 import '../core/gopeed/gopeed_boot.dart';
+import '../core/gopeed/remote_config.dart';
 
 class AppState extends ChangeNotifier {
   static const _sysChannel = MethodChannel('quarklite.com/system');
@@ -68,9 +69,20 @@ class AppState extends ChangeNotifier {
   /// 同时上传任务数（默认 1：一次一个文件，减少接口限流与内存占用）
   int uploadParallelism = 1;
 
+  /// 「发送到 Gopeed」远程转发配置（iOS 上生效：下载直链转发到远程
+  /// Gopeed 实例；其他平台内嵌引擎，设置保留但不使用）
+  RemoteGopeedConfig gopeedRemote = const RemoteGopeedConfig.disabled();
+
   Timer? _sessionTimer;
 
   bool get isLoggedIn => user != null;
+
+  // 远程 Gopeed 便捷访问器（设置页与 DownloadService 使用）
+  bool get gopeedRemoteEnabled => gopeedRemote.enabled;
+  String get gopeedRemoteHost => gopeedRemote.host;
+  int get gopeedRemotePort => gopeedRemote.port;
+  String get gopeedRemoteToken => gopeedRemote.token;
+  String get gopeedRemoteDir => gopeedRemote.dir;
 
   Future<void> init() async {
     await _loadSettings();
@@ -170,6 +182,7 @@ class AppState extends ChangeNotifier {
     closeAction = prefs.getString(_kCloseAction) ?? 'ask_once';
     themeMode = prefs.getString(_kThemeMode) ?? 'system';
     uploadParallelism = prefs.getInt(_kUploadParallelism) ?? 1;
+    gopeedRemote = await RemoteGopeedConfig.loadRaw();
     notifyListeners();
   }
 
@@ -281,6 +294,18 @@ class AppState extends ChangeNotifier {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kThemeMode, mode);
     notifyListeners();
+  }
+
+  /// 保存「发送到 Gopeed」远程转发配置并使其生效：
+  /// iOS 上停止当前下载客户端，下一次任务轮询会以新模式自动重启
+  /// （远程模式直连远程实例，本机模式回落 URLSession 下载器）
+  Future<void> setGopeedRemote(RemoteGopeedConfig cfg) async {
+    gopeedRemote = cfg;
+    await RemoteGopeedConfig.save(cfg);
+    notifyListeners();
+    if (!kIsWeb && Platform.isIOS && GopeedEngine.started) {
+      await GopeedEngine.stop();
+    }
   }
 
   /// 把并发配置同步到 Gopeed 引擎（引擎未启动时忽略，启动时由 app.dart 应用）

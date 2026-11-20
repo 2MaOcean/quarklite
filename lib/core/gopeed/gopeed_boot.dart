@@ -10,15 +10,21 @@ import '../../utils/app_logger.dart';
 import 'download_client.dart';
 import 'gopeed_client.dart';
 import 'ios_background_download_client.dart';
+import 'remote_config.dart';
 
 class GopeedEngine {
   static const _channel = MethodChannel('quarklite.com/gopeed');
 
   static DownloadClient? _client;
   static bool _started = false;
+  static bool _remoteMode = false;
   static Process? _winProcess;
   static bool _winServerReady = false;
   static String _winDiag = '';
+
+  /// 当前是否工作在远程 Gopeed 模式（iOS 上开启「发送到 Gopeed」后为 true，
+  /// 任务被转发到远程 Gopeed 实例而不是本机下载器）
+  static bool get usingRemote => _remoteMode;
 
   /// 进行中的启动流程（并发调用共享同一次启动，避免互相杀掉对方刚拉起的引擎进程）
   static Future<void>? _startInFlight;
@@ -90,10 +96,33 @@ class GopeedEngine {
   }
 
 
-  // ---------------- iOS：URLSession 原生后台下载 ----------------
+  // ---------------- iOS：远程 Gopeed 优先，回落 URLSession 原生后台下载 ----------------
 
   static Future<void> _startIos() async {
+    // 「发送到 Gopeed」开启时把直链转发到远程 Gopeed 实例：
+    // 复用同一套 REST 客户端与任务列表页，远程不可达时由轮询提示错误
+    final remote = await RemoteGopeedConfig.load();
+    if (remote != null) {
+      try {
+        final client = GopeedClient(remote.baseUrl, apiToken: remote.token);
+        await client.info(); // 启动即探活，尽早暴露地址/令牌错误
+        _client = client;
+        _started = true;
+        _remoteMode = true;
+        lastError = null;
+        AppLogger.I.i('engine', 'iOS 远程 Gopeed 已连接: ${remote.baseUrl}');
+        return;
+      } catch (e) {
+        _client = null;
+        _started = false;
+        _remoteMode = false;
+        lastError = '远程 Gopeed 连接失败(${remote.baseUrl}): $e';
+        AppLogger.I.e('engine', '$lastError');
+        throw Exception(lastError!);
+      }
+    }
     try {
+      _remoteMode = false;
       final client = IosBackgroundDownloadClient();
       await client.start();
       _client = client;
@@ -396,6 +425,7 @@ class GopeedEngine {
     }
     _client = null;
     _started = false;
+    _remoteMode = false;
   }
 
   /// 引擎进程意外退出后的自动重启（防抖；失败时留给 DownloadManager 周期重试）

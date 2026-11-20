@@ -9,12 +9,26 @@ import 'gopeed_models.dart';
 class GopeedClient implements DownloadClient {
   final Dio _dio;
 
-  GopeedClient(String baseUrl)
+  /// [apiToken] 为远程 Gopeed 实例开启「接口调用令牌」时的鉴权头。
+  /// 本机内嵌引擎不设令牌，传空即可。
+  GopeedClient(String baseUrl, {String? apiToken})
       : _dio = Dio(BaseOptions(
           baseUrl: '$baseUrl/api/v1',
           connectTimeout: const Duration(seconds: 5),
           receiveTimeout: const Duration(seconds: 10),
+          headers: {
+            if (apiToken != null && apiToken.isNotEmpty)
+              'X-Api-Token': apiToken,
+          },
         ));
+
+  /// 读取 Gopeed 实例信息（GET /info），用于「测试连接」。
+  /// 远程服务可达且令牌正确时返回版本等信息，否则抛异常。
+  Future<Map<String, dynamic>> info() async {
+    final resp = await _dio.get('/info');
+    final data = _check(resp);
+    return data is Map ? data.cast<String, dynamic>() : {};
+  }
 
   dynamic _check(Response<dynamic> resp) {
     final body = resp.data;

@@ -5,6 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_miuix/miuix.dart';
 
+import '../../core/gopeed/gopeed_client.dart';
+import '../../core/gopeed/remote_config.dart';
 import '../../core/notify/download_notifier.dart';
 import '../../core/update_checker.dart';
 import '../../state/app_state.dart';
@@ -224,9 +226,20 @@ class MePage extends StatelessWidget {
             const MiuixHorizontalDivider(),
             arrowPref(
               title: 'iOS 后台下载',
-              summary: '系统 URLSession 后台下载，可暂停恢复',
+              summary: app.gopeedRemoteEnabled
+                  ? '已切换为远程 Gopeed 下载'
+                  : '系统 URLSession 后台下载，可暂停恢复',
               icon: Icons.speed_rounded,
               onClick: () => MiuixToast.show('切换应用或锁屏后，系统仍可继续下载'),
+            ),
+            const MiuixHorizontalDivider(),
+            arrowPref(
+              title: '发送到 Gopeed',
+              summary: app.gopeedRemoteEnabled
+                  ? '已开启 · ${app.gopeedRemoteHost}:${app.gopeedRemotePort}'
+                  : '关闭 · 把下载直链发送到电脑 / NAS 上的 Gopeed',
+              icon: Icons.send_rounded,
+              onClick: () => _editRemoteGopeed(context),
             ),
           ] else ...[
             const MiuixHorizontalDivider(),
@@ -359,7 +372,7 @@ class MePage extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
           MiuixArrowPreference(title: '日志', summary: '查看/复制运行日志，排查下载问题', startAction: leading(Icons.bug_report_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showLog(context)),
           const MiuixHorizontalDivider(),
-          MiuixArrowPreference(title: '关于', summary: !kIsWeb && Platform.isIOS ? 'Quarklite v1.3.2  ·  iOS 原生后台下载器' : 'Quarklite v1.3.2  ·  基于 Gopeed 下载引擎', startAction: leading(Icons.info_outline_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showAbout(context)),
+          MiuixArrowPreference(title: '关于', summary: !kIsWeb && Platform.isIOS ? 'Quarklite v1.4.0  ·  iOS 原生后台下载器' : 'Quarklite v1.4.0  ·  基于 Gopeed 下载引擎', startAction: leading(Icons.info_outline_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showAbout(context)),
         ]),
     );
   }
@@ -505,6 +518,14 @@ class MePage extends StatelessWidget {
     });
   }
 
+  /// 「发送到 Gopeed」远程转发配置弹窗
+  void _editRemoteGopeed(BuildContext context) {
+    MiuixOverlayPanel.show(
+      context: context,
+      builder: (_) => _RemoteGopeedDialog(initial: AppState.I.gopeedRemote),
+    );
+  }
+
   void _showAbout(BuildContext context) {
     final isIOS = !kIsWeb && Platform.isIOS;
     var capabilityText = '内置 Gopeed 多线程下载引擎\n'
@@ -512,10 +533,16 @@ class MePage extends StatelessWidget {
     var platformText = '实时动态: 未查询';
 
     if (isIOS) {
-      capabilityText = '使用 iOS URLSession 原生后台下载器\n'
-          '· 支持分享链接解析 / 网盘直连 / 暂停恢复\n'
-          '· iOS 暂不支持 BT 磁力';
-      platformText = '下载位置: 文件 App / 我的 iPhone / Quarklite';
+      capabilityText = AppState.I.gopeedRemoteEnabled
+          ? '已开启「发送到 Gopeed」远程转发\n'
+              '· 直链与 BT 磁力由远程 Gopeed 下载\n'
+              '· 任务列表显示远程 Gopeed 的任务'
+          : '使用 iOS URLSession 原生后台下载器\n'
+              '· 支持分享链接解析 / 网盘直连 / 暂停恢复\n'
+              '· 开启「发送到 Gopeed」可转发直链与 BT 磁力';
+      platformText = AppState.I.gopeedRemoteEnabled
+          ? '下载位置: 远程 Gopeed 的下载目录'
+          : '下载位置: 文件 App / 我的 iPhone / Quarklite';
     } else {
       final live = DownloadNotifier.liveUpdateStatus;
       if (live != null) {
@@ -541,7 +568,7 @@ class MePage extends StatelessWidget {
           '· $capabilityText\n'
           '· $platformText\n'
           '· 本项目基于 GPL-3.0 协议开源\n\n'
-          'v1.3.2',
+          'v1.4.0',
       confirmText: '关闭',
     );
   }
@@ -670,6 +697,188 @@ class _LogDialogState extends State<_LogDialog> {
                 ],
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 「发送到 Gopeed」远程转发配置弹窗。
+///
+/// iOS 未内嵌 Gopeed 内核：开启后，网盘下载直链（含 BT 磁力）会发送到
+/// 局域网 / 远程 Gopeed 实例（电脑、NAS、安卓设备上的 Gopeed），
+/// 由它执行多线程下载；关闭时回落到本机 URLSession 后台下载器。
+class _RemoteGopeedDialog extends StatefulWidget {
+  final RemoteGopeedConfig initial;
+
+  const _RemoteGopeedDialog({super.key, required this.initial});
+
+  @override
+  State<_RemoteGopeedDialog> createState() => _RemoteGopeedDialogState();
+}
+
+class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
+  late bool _enabled = widget.initial.enabled;
+  late final TextEditingController _host =
+      TextEditingController(text: widget.initial.host);
+  late final TextEditingController _port = TextEditingController(
+      text: widget.initial.port <= 0
+          ? '${RemoteGopeedConfig.defaultPort}'
+          : '${widget.initial.port}');
+  late final TextEditingController _token =
+      TextEditingController(text: widget.initial.token);
+  late final TextEditingController _dir =
+      TextEditingController(text: widget.initial.dir);
+  bool _testing = false;
+
+  @override
+  void dispose() {
+    _host.dispose();
+    _port.dispose();
+    _token.dispose();
+    _dir.dispose();
+    super.dispose();
+  }
+
+  RemoteGopeedConfig _collect() => RemoteGopeedConfig(
+        enabled: _enabled,
+        host: _host.text.trim(),
+        port: int.tryParse(_port.text.trim()) ?? RemoteGopeedConfig.defaultPort,
+        token: _token.text.trim(),
+        dir: _dir.text.trim(),
+      );
+
+  void _close() => MiuixOverlayPanel.hide();
+
+  /// 测试远程 Gopeed 连通性（GET /info，带令牌）
+  Future<void> _test() async {
+    final cfg = _collect();
+    if (cfg.host.isEmpty) {
+      MiuixToast.show('请先填写 Gopeed 地址');
+      return;
+    }
+    setState(() => _testing = true);
+    try {
+      final client = GopeedClient(cfg.baseUrl, apiToken: cfg.token);
+      final info = await client.info();
+      final ver = info['version']?.toString() ?? '';
+      MiuixToast.show('连接成功${ver.isEmpty ? '' : ' · Gopeed $ver'}');
+    } catch (e) {
+      MiuixToast.show('连接失败：请检查地址 / 令牌，以及 Gopeed 是否开启'
+          '「允许局域网连接」\n$e');
+    } finally {
+      if (mounted) setState(() => _testing = false);
+    }
+  }
+
+  Future<void> _save() async {
+    final cfg = _collect();
+    if (cfg.enabled && cfg.host.isEmpty) {
+      MiuixToast.show('开启前请先填写 Gopeed 地址');
+      return;
+    }
+    await AppState.I.setGopeedRemote(cfg);
+    if (!mounted) return;
+    _close();
+    MiuixToast.show(cfg.isActive
+        ? '已开启，直链将发送到 ${cfg.baseUrl}'
+        : '已关闭，使用本机下载');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = MiuixTheme.of(context).colors;
+    return MiuixOverlayDialog(
+      show: true,
+      title: '发送到 Gopeed',
+      onDismissRequest: _close,
+      content: MiuixDismissScope(
+        onDismissRequest: _close,
+        child: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                MiuixText(
+                  '把网盘下载直链发送到同一网络或可达网络中的 Gopeed，'
+                  '由它多线程下载。开启后本机不再下载文件，任务列表'
+                  '显示的是远程 Gopeed 的任务。',
+                  color: colors.onSurfaceSecondary,
+                  fontSize: 12,
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: MiuixText('启用远程转发',
+                          color: colors.onSurfaceContainer, fontSize: 14),
+                    ),
+                    MiuixSwitch(
+                      value: _enabled,
+                      onChanged: (v) => setState(() => _enabled = v),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                MiuixTextField(
+                  controller: _host,
+                  label: 'Gopeed 地址（如 192.168.1.100）',
+                  useLabelAsPlaceholder: true,
+                  singleLine: true,
+                ),
+                const SizedBox(height: 10),
+                MiuixTextField(
+                  controller: _port,
+                  label: '端口（默认 ${RemoteGopeedConfig.defaultPort}）',
+                  useLabelAsPlaceholder: true,
+                  singleLine: true,
+                ),
+                const SizedBox(height: 10),
+                MiuixTextField(
+                  controller: _token,
+                  label: 'API 令牌（Gopeed 未设置令牌则留空）',
+                  useLabelAsPlaceholder: true,
+                  singleLine: true,
+                ),
+                const SizedBox(height: 10),
+                MiuixTextField(
+                  controller: _dir,
+                  label: '远程下载目录（留空用 Gopeed 默认目录）',
+                  useLabelAsPlaceholder: true,
+                  singleLine: true,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    MiuixTextButton(
+                      _testing ? '测试中…' : '测试连接',
+                      onPressed: _testing ? null : _test,
+                      insideMargin: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    const Spacer(),
+                    MiuixTextButton(
+                      '取消',
+                      onPressed: _close,
+                      insideMargin: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                    const SizedBox(width: 8),
+                    MiuixTextButton(
+                      '保存',
+                      onPressed: _save,
+                      colors: MiuixButtonColors(
+                          color: colors.primary,
+                          disabledColor: colors.primary,
+                          contentColor: Colors.white,
+                          disabledContentColor: Colors.white),
+                      insideMargin: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

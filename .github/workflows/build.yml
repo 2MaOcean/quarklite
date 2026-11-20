@@ -1,4 +1,4 @@
-name: Build Android
+name: Build Android & iOS
 
 on:
   push:
@@ -95,8 +95,56 @@ jobs:
             build/app/outputs/flutter-apk/app-x86_64-release.apk
           if-no-files-found: error
 
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read app version
+        id: ver
+        shell: bash
+        run: |
+          VER=$(grep -E '^version:' pubspec.yaml | sed -E 's/^version:[[:space:]]*//' | tr -d '\r')
+          echo "app_version=$VER" >> "$GITHUB_OUTPUT"
+          echo "APP_VERSION=$VER" >> "$GITHUB_ENV"
+          echo "Building version: $VER"
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build unsigned iOS app (iPhone / iPad)
+        run: |
+          flutter pub get
+          flutter build ios --release --no-codesign
+
+      - name: Package IPA
+        shell: bash
+        run: |
+          VER="${APP_VERSION%%+*}"
+          # 未签名 IPA：Payload/Runner.app 压缩包，可用 AltStore / Sideloadly /
+          # eSign / 爱思助手 自签安装；TrollStore 把 .ipa 改名 .tipa 即可
+          mkdir Payload
+          cp -R build/ios/iphoneos/Runner.app Payload/
+          zip -qry "quarklite-${VER}-ios-unsigned.ipa" Payload
+          cp "quarklite-${VER}-ios-unsigned.ipa" "quarklite-${VER}-ios-trollstore.tipa"
+          rm -rf Payload
+          mkdir -p build/ipa
+          mv quarklite-*.ipa quarklite-*.tipa build/ipa/
+          ls -lh build/ipa
+
+      - name: Upload IPA artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarklite-ipa
+          path: build/ipa/*
+          if-no-files-found: error
+
   publish-release:
-    needs: [build-android]
+    needs: [build-android, build-ios]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -110,6 +158,12 @@ jobs:
           name: quarklite-apk
           path: release/android
 
+      - name: Download IPA artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: quarklite-ipa
+          path: release/ios
+
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -117,14 +171,14 @@ jobs:
           VER=$(grep -E '^version:' pubspec.yaml | sed -E 's/^version:[[:space:]]*//' | cut -d+ -f1 | tr -d '\r')
           TAG="v$VER"
           echo "Publishing $TAG"
-          ls -lh release/android
+          ls -lh release/android release/ios
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber release/android/*
+            gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber release/android/* release/ios/*
           else
             gh release create "$TAG" \
               --repo "$GITHUB_REPOSITORY" \
               --title "Quarklite $TAG" \
               --generate-notes \
               --target "$GITHUB_SHA" \
-              release/android/*
+              release/android/* release/ios/*
           fi
