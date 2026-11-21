@@ -109,7 +109,7 @@ class MePage extends StatelessWidget {
           const MiuixHorizontalDivider(),
           _buildAccountRow(
             context: context,
-            icon: const NetdiskUcBadge(size: 40, radius: 10),
+            icon: const NetdiskTextBadge(text: 'UC', size: 40, radius: 10),
             title: 'UC 网盘',
             subtitle: UcState.I.isLoggedIn
                 ? (UcState.I.user?.nickname.isNotEmpty == true

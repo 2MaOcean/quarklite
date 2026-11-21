@@ -188,7 +188,7 @@ class DriveHubPage extends StatelessWidget {
     final u = UcState.I;
     final logged = u.isLoggedIn;
     return _DriveCard(
-      iconWidget: const NetdiskUcBadge(size: 52, radius: 14),
+      iconWidget: const NetdiskTextBadge(text: 'UC', size: 52, radius: 14),
       title: 'UC 网盘',
       subtitle: logged
           ? (u.user?.nickname.isNotEmpty == true
