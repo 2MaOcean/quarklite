@@ -15,7 +15,8 @@ dependencies:
   dio: ^5.7.0
   background_downloader: ^9.5.8
   shared_preferences: ^2.3.2
-  flutter_secure_storage: ^9.2.2
+  # 11.x 的 windows 实现兼容 win32 6，与 file_picker 13 共存
+  flutter_secure_storage: ^11.2.0
   qr_flutter: ^4.1.0
   path_provider: ^2.1.4
   cached_network_image: ^3.4.1

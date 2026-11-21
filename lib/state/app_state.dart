@@ -37,9 +37,7 @@ class AppState extends ChangeNotifier {
   AppState._();
 
   final QuarkClient quark = QuarkClient();
-  final _secure = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final _secure = const FlutterSecureStorage();
 
   QuarkUserInfo? user;
   String? loginError;

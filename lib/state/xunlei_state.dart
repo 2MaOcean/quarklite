@@ -18,9 +18,7 @@ class XunleiState extends ChangeNotifier {
   static XunleiState get I => _instance ??= XunleiState._();
 
   final XunleiClient client = XunleiClient();
-  final _secure = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final _secure = const FlutterSecureStorage();
 
   String? username; // 登录账号（手机号/邮箱），仅本机展示
   bool _ready = false;

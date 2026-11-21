@@ -51,9 +51,7 @@ class Netdisk123State extends ChangeNotifier {
   static Netdisk123State get I => _instance ??= Netdisk123State._();
 
   final Netdisk123Client client = Netdisk123Client();
-  final _secure = const FlutterSecureStorage(
-    aOptions: AndroidOptions(encryptedSharedPreferences: true),
-  );
+  final _secure = const FlutterSecureStorage();
 
   List<Netdisk123Account> accounts = [];
   String? _activeId;
