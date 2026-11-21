@@ -15,6 +15,7 @@ import '../login/netdisk123_login_page.dart';
 import '../login/xunlei_login_page.dart';
 import 'drive_page.dart';
 import 'netdisk123_accounts_page.dart';
+import 'aggregate_search_page.dart';
 import 'baidu_drive_page.dart';
 import 'uc_drive_page.dart';
 import 'xunlei_drive_page.dart';
@@ -25,7 +26,7 @@ class DriveHubPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([AppState.I, XunleiState.I, Netdisk123State.I]),
+      listenable: Listenable.merge([AppState.I, XunleiState.I, Netdisk123State.I, UcState.I, BaiduState.I]),
       builder: (context, _) {
         final colors = MiuixTheme.of(context).colors;
         return SafeArea(
@@ -34,10 +35,23 @@ class DriveHubPage extends StatelessWidget {
             children: [
               Padding(
                 padding: const EdgeInsets.fromLTRB(12, 16, 20, 12),
-                child: MiuixText('网盘',
-                    fontSize: 24,
-                    fontWeight: FontWeight.w800,
-                    color: colors.onSurfaceContainer),
+                child: Row(
+                  children: [
+                    MiuixText('网盘',
+                        fontSize: 24,
+                        fontWeight: FontWeight.w800,
+                        color: colors.onSurfaceContainer),
+                    const Spacer(),
+                    MiuixIconButton(
+                      onPressed: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                              builder: (_) => const AggregateSearchPage())),
+                      child: MiuixIcon(
+                          icon: Icons.travel_explore_rounded,
+                          tint: colors.primary),
+                    ),
+                  ],
+                ),
               ),
               Expanded(
                 child: ListView(
