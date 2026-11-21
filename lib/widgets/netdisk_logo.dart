@@ -56,6 +56,10 @@ class NetdiskLogo extends StatelessWidget {
         return 'assets/icons/xunlei.png';
       case NetdiskProvider.netdisk123:
         return 'assets/icons/netdisk123.png';
+      // UC 无官方 logo 资源，展示层应使用 NetdiskUcBadge 自绘标识；
+      // 此处返回空串兜底（errorBuilder 会渲染空白）
+      case NetdiskProvider.uc:
+        return '';
     }
   }
 
