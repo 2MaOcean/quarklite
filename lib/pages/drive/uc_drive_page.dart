@@ -444,7 +444,7 @@ class _UcDrivePageState extends State<UcDrivePage> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const NetdiskUcBadge(size: 64),
+          const NetdiskTextBadge(text: 'UC', size: 64),
           const SizedBox(height: 16),
           MiuixText('UC 网盘（实验性）',
               color: colors.onSurfaceContainer, fontSize: 16),

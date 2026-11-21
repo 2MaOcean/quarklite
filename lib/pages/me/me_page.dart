@@ -12,6 +12,7 @@ import '../../core/notify/download_notifier.dart';
 import '../../core/update_checker.dart';
 import '../../state/app_state.dart';
 import '../../state/netdisk123_state.dart';
+import '../../state/baidu_state.dart';
 import '../../state/uc_state.dart';
 import '../../state/upload_manager.dart';
 import '../../state/xunlei_state.dart';
@@ -27,7 +28,7 @@ class MePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([AppState.I, XunleiState.I, Netdisk123State.I, UcState.I]),
+      listenable: Listenable.merge([AppState.I, XunleiState.I, Netdisk123State.I, UcState.I, BaiduState.I]),
       builder: (context, _) {
         final app = AppState.I;
         final colors = MiuixTheme.of(context).colors;
@@ -119,6 +120,24 @@ class MePage extends StatelessWidget {
                 ? _LogoutButton(
                     onPressed: () => _confirmLogout(
                         context, 'UC 网盘', () => UcState.I.logout()),
+                  )
+                : null,
+          ),
+          const MiuixHorizontalDivider(),
+          _buildAccountRow(
+            context: context,
+            icon: const NetdiskTextBadge(
+                text: '百度', color: Color(0xFF06A7FF), size: 40, radius: 10),
+            title: '百度网盘',
+            subtitle: BaiduState.I.isLoggedIn
+                ? (BaiduState.I.username.isNotEmpty
+                    ? BaiduState.I.username
+                    : '已登录')
+                : '未登录，请到「网盘」页登录',
+            trailing: BaiduState.I.isLoggedIn
+                ? _LogoutButton(
+                    onPressed: () => _confirmLogout(
+                        context, '百度网盘', () => BaiduState.I.logout()),
                   )
                 : null,
           ),
@@ -368,7 +387,7 @@ class MePage extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
           MiuixArrowPreference(title: '日志', summary: '查看/复制运行日志，排查下载问题', startAction: leading(Icons.bug_report_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showLog(context)),
           const MiuixHorizontalDivider(),
-          MiuixArrowPreference(title: '关于', summary: !kIsWeb && Platform.isIOS ? 'Quarklite v1.5.0  ·  iOS 原生后台下载器' : 'Quarklite v1.5.0  ·  基于 Gopeed 下载引擎', startAction: leading(Icons.info_outline_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showAbout(context)),
+          MiuixArrowPreference(title: '关于', summary: !kIsWeb && Platform.isIOS ? 'Quarklite v1.6.0  ·  iOS 原生后台下载器' : 'Quarklite v1.6.0  ·  基于 Gopeed 下载引擎', startAction: leading(Icons.info_outline_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showAbout(context)),
         ]),
     );
   }
@@ -564,7 +583,7 @@ class MePage extends StatelessWidget {
           '· $capabilityText\n'
           '· $platformText\n'
           '· 本项目基于 GPL-3.0 协议开源\n\n'
-          'v1.5.0',
+          'v1.6.0',
       confirmText: '关闭',
     );
   }

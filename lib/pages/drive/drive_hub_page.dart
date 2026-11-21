@@ -3,6 +3,7 @@ import 'package:flutter_miuix/miuix.dart';
 
 import '../../state/app_state.dart';
 import '../../state/netdisk123_state.dart';
+import '../../state/baidu_state.dart';
 import '../../state/uc_state.dart';
 import '../../state/xunlei_state.dart';
 import '../../theme/app_theme.dart';
@@ -14,6 +15,7 @@ import '../login/netdisk123_login_page.dart';
 import '../login/xunlei_login_page.dart';
 import 'drive_page.dart';
 import 'netdisk123_accounts_page.dart';
+import 'baidu_drive_page.dart';
 import 'uc_drive_page.dart';
 import 'xunlei_drive_page.dart';
 
@@ -47,6 +49,7 @@ class DriveHubPage extends StatelessWidget {
                     const SizedBox(height: 14),
                     _buildNetdisk123Card(context),
                     _buildUcCard(context),
+                    _buildBaiduCard(context),
                     const SizedBox(height: 20),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4),
@@ -158,6 +161,25 @@ class DriveHubPage extends StatelessWidget {
           return;
         }
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Netdisk123AccountsPage()));
+      },
+    );
+  }
+
+  Widget _buildBaiduCard(BuildContext context) {
+    final b = BaiduState.I;
+    final logged = b.isLoggedIn;
+    return _DriveCard(
+      iconWidget: const NetdiskTextBadge(
+          text: '百度', color: Color(0xFF06A7FF), size: 52, radius: 14),
+      title: '百度网盘',
+      subtitle: logged
+          ? (b.username.isNotEmpty ? '${b.username} · 点击进入' : '已登录 · 点击进入')
+          : '未登录 · 实验性，Cookie 登录',
+      statusColor:
+          logged ? AppColors.green : MiuixTheme.of(context).colors.onSurfaceSecondary,
+      onTap: () {
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const BaiduDrivePage()));
       },
     );
   }

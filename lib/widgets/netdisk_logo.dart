@@ -2,14 +2,23 @@ import 'package:flutter/material.dart';
 
 /// 网盘品牌标识。这里用一个枚举统一指代三种接入的网盘，
 /// 方便在「网盘」首页与「我的」页复用官方彩色 logo。
-enum NetdiskProvider { quark, xunlei, netdisk123, uc }
+enum NetdiskProvider { quark, xunlei, netdisk123, uc, baidu }
 
-/// UC 网盘标识（官方 logo 未内置，用品牌色自绘占位）
-class NetdiskUcBadge extends StatelessWidget {
+//// 无官方 logo 资源的网盘标识：品牌色圆角块 + 文字占位
+/// （UC 网盘橙色、百度网盘蓝色）
+class NetdiskTextBadge extends StatelessWidget {
+  final String text;
+  final Color color;
   final double size;
   final double radius;
 
-  const NetdiskUcBadge({super.key, this.size = 40, this.radius = 12});
+  const NetdiskTextBadge({
+    super.key,
+    required this.text,
+    this.color = const Color(0xFFFF7A21),
+    this.size = 40,
+    this.radius = 12,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -17,15 +26,15 @@ class NetdiskUcBadge extends StatelessWidget {
       width: size,
       height: size,
       decoration: BoxDecoration(
-        color: const Color(0xFFFF7A21),
+        color: color,
         borderRadius: BorderRadius.circular(radius),
       ),
       alignment: Alignment.center,
       child: Text(
-        'UC',
+        text,
         style: TextStyle(
           color: Colors.white,
-          fontSize: size * 0.36,
+          fontSize: text.length > 2 ? size * 0.28 : size * 0.36,
           fontWeight: FontWeight.w800,
           letterSpacing: -0.5,
         ),
