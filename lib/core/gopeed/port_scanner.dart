@@ -84,9 +84,7 @@ class GopeedPortScanner {
       socket.add(utf8.encode(
           'GET /api/v1/info HTTP/1.1\r\nHost: 127.0.0.1\r\n'
           'Connection: close\r\n\r\n'));
-      final body = await socket
-          .transform(utf8.decoder)
-          .fold<String>('', (a, b) => a + b)
+      final body = await _readAll(socket)
           .timeout(_responseTimeout, onTimeout: () => '');
       return body.startsWith('HTTP/1.') &&
           body.contains('"version"') &&
@@ -98,5 +96,15 @@ class GopeedPortScanner {
         socket?.destroy();
       } catch (_) {}
     }
+  }
+
+  /// 读取全部响应文本：先收集字节再一次性解码，
+  /// 避免 Utf8Decoder 直接 transform Uint8List 流的泛型不匹配
+  static Future<String> _readAll(Socket socket) async {
+    final builder = BytesBuilder();
+    await for (final chunk in socket) {
+      builder.add(chunk);
+    }
+    return utf8.decode(builder.takeBytes(), allowMalformed: true);
   }
 }

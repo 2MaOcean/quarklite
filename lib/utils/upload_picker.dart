@@ -54,15 +54,13 @@ class UploadPicker {
   static const maxFiles = 2000;
 
   /// 多选文件。返回空列表表示用户取消。
+  /// （file_picker 13：pickFiles 直接返回文件列表，默认多选）
   static Future<List<UploadSource>> pickFiles() async {
-    final result = await FilePicker.pickFiles(
-      allowMultiple: true,
+    final files = await FilePicker.pickFiles(
       type: FileType.any,
-      withData: false,
     );
-    if (result == null) return const [];
     final sources = <UploadSource>[];
-    for (final f in result.files) {
+    for (final f in files) {
       final path = f.path;
       if (path == null || path.isEmpty) continue;
       var modified = 0;
@@ -72,10 +70,16 @@ class UploadPicker {
       } catch (_) {
         // 文件已被移动等异常：保留默认时间戳
       }
+      var size = 0;
+      try {
+        size = f.lengthSync() ?? 0;
+      } catch (_) {
+        // 长度不可得时按 0 处理
+      }
       sources.add(UploadSource(
         path: path,
         name: f.name,
-        size: f.size,
+        size: size,
         modified: modified,
       ));
     }

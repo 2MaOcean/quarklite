@@ -26,8 +26,9 @@ dependencies:
   crypto: ^3.0.6
   webview_flutter: ^4.14.0
   webview_flutter_windows: ^1.1.1
-  # 12.x 需要 win32 ^6.3，与 flutter_secure_storage 9.2.2 冲突，锁 11.x
-  file_picker: ^11.0.3
+  # 13.x 适配 Flutter 3.50 的 AGP 9 / Built-in Kotlin（12 起移除自带 KGP）
+  # 上传选择文件用法见 lib/utils/upload_picker.dart
+  file_picker: ^13.4.0
   url_launcher: ^6.2.5
   flutter_miuix: ^1.1.1
 
