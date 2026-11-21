@@ -14,6 +14,7 @@ import 'pages/uploads/uploads_page.dart';
 import 'state/app_state.dart';
 import 'state/download_manager.dart';
 import 'state/netdisk123_state.dart';
+import 'state/uc_state.dart';
 import 'state/upload_manager.dart';
 import 'state/xunlei_state.dart';
 import 'theme/app_theme.dart';
@@ -54,6 +55,7 @@ class _QuarkLiteAppState extends State<QuarkLiteApp> {
     }
     unawaited(XunleiState.I.init());
     unawaited(Netdisk123State.I.init());
+    unawaited(UcState.I.init());
     unawaited(_bootEngine());
     DownloadManager.I.startPolling();
     if (mounted) {

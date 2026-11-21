@@ -12,6 +12,7 @@ import '../../core/notify/download_notifier.dart';
 import '../../core/update_checker.dart';
 import '../../state/app_state.dart';
 import '../../state/netdisk123_state.dart';
+import '../../state/uc_state.dart';
 import '../../state/upload_manager.dart';
 import '../../state/xunlei_state.dart';
 import '../../theme/app_theme.dart';
@@ -26,7 +27,7 @@ class MePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: Listenable.merge([AppState.I, XunleiState.I, Netdisk123State.I]),
+      listenable: Listenable.merge([AppState.I, XunleiState.I, Netdisk123State.I, UcState.I]),
       builder: (context, _) {
         final app = AppState.I;
         final colors = MiuixTheme.of(context).colors;
@@ -107,23 +108,17 @@ class MePage extends StatelessWidget {
           const MiuixHorizontalDivider(),
           _buildAccountRow(
             context: context,
-            icon: const NetdiskLogo(provider: NetdiskProvider.netdisk123),
-            title: '123 网盘',
-            subtitle: Netdisk123State.I.isLoggedIn
-                ? (Netdisk123State.I.username?.isNotEmpty == true
-                    ? Netdisk123State.I.username!
+            icon: const NetdiskUcBadge(size: 40, radius: 10),
+            title: 'UC 网盘',
+            subtitle: UcState.I.isLoggedIn
+                ? (UcState.I.user?.nickname.isNotEmpty == true
+                    ? UcState.I.user!.nickname
                     : '已登录')
                 : '未登录，请到「网盘」页登录',
-            capability: Netdisk123State.I.isLoggedIn && Netdisk123State.I.hasQuota
-                ? StorageCapacityRow(
-                    totalSize: Netdisk123State.I.totalSize,
-                    usedSize: Netdisk123State.I.usedSize,
-                  )
-                : null,
-            trailing: Netdisk123State.I.isLoggedIn
+            trailing: UcState.I.isLoggedIn
                 ? _LogoutButton(
-                    onPressed: () => _confirmLogout(context, '123 网盘',
-                        () => Netdisk123State.I.logout()),
+                    onPressed: () => _confirmLogout(
+                        context, 'UC 网盘', () => UcState.I.logout()),
                   )
                 : null,
           ),
@@ -373,7 +368,7 @@ class MePage extends StatelessWidget {
       child: Column(mainAxisSize: MainAxisSize.min, children: [
           MiuixArrowPreference(title: '日志', summary: '查看/复制运行日志，排查下载问题', startAction: leading(Icons.bug_report_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showLog(context)),
           const MiuixHorizontalDivider(),
-          MiuixArrowPreference(title: '关于', summary: !kIsWeb && Platform.isIOS ? 'Quarklite v1.4.0  ·  iOS 原生后台下载器' : 'Quarklite v1.4.0  ·  基于 Gopeed 下载引擎', startAction: leading(Icons.info_outline_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showAbout(context)),
+          MiuixArrowPreference(title: '关于', summary: !kIsWeb && Platform.isIOS ? 'Quarklite v1.5.0  ·  iOS 原生后台下载器' : 'Quarklite v1.5.0  ·  基于 Gopeed 下载引擎', startAction: leading(Icons.info_outline_rounded), insideMargin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), onClick: () => _showAbout(context)),
         ]),
     );
   }
@@ -569,7 +564,7 @@ class MePage extends StatelessWidget {
           '· $capabilityText\n'
           '· $platformText\n'
           '· 本项目基于 GPL-3.0 协议开源\n\n'
-          'v1.4.0',
+          'v1.5.0',
       confirmText: '关闭',
     );
   }

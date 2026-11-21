@@ -34,9 +34,18 @@ class QuarkShareSession {
 }
 
 class QuarkClient {
-  static const driveApi = 'https://drive.quark.cn/1/clouddrive';
-  static const drivePcApi = 'https://drive-pc.quark.cn/1/clouddrive';
-  static const panApi = 'https://pan.quark.cn';
+  /// 域名与 UA 做成实例 getter：UC 网盘（drive.uc.cn）与夸克同 API 家族，
+  /// 由 UcClient 子类覆盖即可复用整套列表/下载/文件操作实现。
+  static const quarkDriveApi = 'https://drive.quark.cn/1/clouddrive';
+  static const quarkDrivePcApi = 'https://drive-pc.quark.cn/1/clouddrive';
+  static const quarkPanApi = 'https://pan.quark.cn';
+
+  String get driveApi => quarkDriveApi;
+  String get drivePcApi => quarkDrivePcApi;
+  String get panApi => quarkPanApi;
+
+  /// 网页端 Referer 基址（UC 覆盖为 pan.uc.cn）
+  String get refererBase => 'https://pan.quark.cn/';
 
   static const uaPc =
       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36';
@@ -72,7 +81,7 @@ class QuarkClient {
     final headers = <String, dynamic>{
       'Accept': 'application/json, text/plain, */*',
       'Content-Type': 'application/json',
-      'Referer': 'https://pan.quark.cn/',
+      'Referer': refererBase,
       'User-Agent': userAgent ?? uaPc,
       if (cookie.isNotEmpty) 'Cookie': cookie,
       ...?extraHeaders,
@@ -493,7 +502,7 @@ class QuarkClient {
         headers: {
           'Authorization': authKey,
           'Content-Type': mime,
-          'Referer': 'https://pan.quark.cn/',
+          'Referer': refererBase,
           'x-oss-date': timeStr,
           'x-oss-user-agent': _ossUserAgent,
         },
@@ -574,7 +583,7 @@ class QuarkClient {
           'Authorization': authKey,
           'Content-MD5': contentMd5,
           'Content-Type': 'application/xml',
-          'Referer': 'https://pan.quark.cn/',
+          'Referer': refererBase,
           'x-oss-callback': callbackBase64,
           'x-oss-date': timeStr,
           'x-oss-user-agent': _ossUserAgent,

@@ -15,7 +15,10 @@ class MoveTargetPage extends StatefulWidget {
   /// 被移动的文件 fid 集合（含文件夹本身），用于禁止移入自身
   final Set<String> movedFids;
 
-  const MoveTargetPage({super.key, required this.movedFids});
+  /// 目录列表提供方；缺省用夸克网盘（UC 网盘页传入自己的 listFiles）
+  final Future<List<QuarkFile>> Function(String dirFid)? listDirs;
+
+  const MoveTargetPage({super.key, required this.movedFids, this.listDirs});
 
   @override
   State<MoveTargetPage> createState() => _MoveTargetPageState();
@@ -40,7 +43,9 @@ class _MoveTargetPageState extends State<MoveTargetPage> {
       _error = null;
     });
     try {
-      final files = await AppState.I.quark.listFiles(_dirFid);
+      final listDirs = widget.listDirs ??
+          (fid) async => AppState.I.quark.listFiles(fid);
+      final files = await listDirs(_dirFid);
       if (mounted) {
         setState(() {
           _files = files.where((f) => f.isDir).toList();

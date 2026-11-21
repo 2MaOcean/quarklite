@@ -3,6 +3,7 @@ import 'package:flutter_miuix/miuix.dart';
 
 import '../../state/app_state.dart';
 import '../../state/netdisk123_state.dart';
+import '../../state/uc_state.dart';
 import '../../state/xunlei_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/miuix_common.dart';
@@ -13,6 +14,7 @@ import '../login/netdisk123_login_page.dart';
 import '../login/xunlei_login_page.dart';
 import 'drive_page.dart';
 import 'netdisk123_accounts_page.dart';
+import 'uc_drive_page.dart';
 import 'xunlei_drive_page.dart';
 
 class DriveHubPage extends StatelessWidget {
@@ -44,6 +46,7 @@ class DriveHubPage extends StatelessWidget {
                     _buildXunleiCard(context),
                     const SizedBox(height: 14),
                     _buildNetdisk123Card(context),
+                    _buildUcCard(context),
                     const SizedBox(height: 20),
                     Padding(
                       padding: EdgeInsets.symmetric(horizontal: 4),
@@ -155,6 +158,26 @@ class DriveHubPage extends StatelessWidget {
           return;
         }
         Navigator.of(context).push(MaterialPageRoute(builder: (_) => const Netdisk123AccountsPage()));
+      },
+    );
+  }
+
+  Widget _buildUcCard(BuildContext context) {
+    final u = UcState.I;
+    final logged = u.isLoggedIn;
+    return _DriveCard(
+      iconWidget: const NetdiskUcBadge(size: 52, radius: 14),
+      title: 'UC 网盘',
+      subtitle: logged
+          ? (u.user?.nickname.isNotEmpty == true
+              ? '${u.user!.nickname} · 点击进入'
+              : '已登录 · 点击进入')
+          : '未登录 · 实验性，Cookie 登录',
+      statusColor:
+          logged ? AppColors.green : MiuixTheme.of(context).colors.onSurfaceSecondary,
+      onTap: () {
+        Navigator.of(context).push(
+            MaterialPageRoute(builder: (_) => const UcDrivePage()));
       },
     );
   }

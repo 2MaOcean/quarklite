@@ -497,6 +497,36 @@ class Netdisk123Client {
     return <String, dynamic>{};
   }
 
+  // ---------------- 文件管理操作（网页端接口，参照 123 开放 API 结构） ----------------
+
+  int? _toInt(String id) => int.tryParse(id);
+
+  /// 重命名文件/文件夹
+  Future<void> renameFile(String fileId, String newName) async {
+    await _apiPostRaw('$_apiBase/file/rename', {
+      'driveId': 0,
+      'fileId': _toInt(fileId) ?? fileId,
+      'fileName': newName,
+    });
+  }
+
+  /// 删除（移入回收站）
+  Future<void> trashFiles(List<String> fileIds) async {
+    await _apiPostRaw('$_apiBase/file/trash', {
+      'driveId': 0,
+      'fileIDs': fileIds.map(_toInt).whereType<int>().toList(),
+    });
+  }
+
+  /// 移动到指定目录
+  Future<void> moveFiles(List<String> fileIds, String toParentId) async {
+    await _apiPostRaw('$_apiBase/file/mod_pid', {
+      'driveId': 0,
+      'fileIDs': fileIds.map(_toInt).whereType<int>().toList(),
+      'parentFileId': _toInt(toParentId) ?? 0,
+    });
+  }
+
   // ---------------- 云盘 ----------------
 
   /// 文件列表（自动翻页，Next == "-1" 结束）

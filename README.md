@@ -3,6 +3,8 @@
 夸克网盘不限速下载工具（Android / Windows / iOS）。Android 与 Windows 使用 [Gopeed](https://github.com/GopeedLab/gopeed)，iOS 使用基于 URLSession 的原生后台下载器，支持：
 
 - 夸克网盘扫码登录 / Cookie 登录
+- UC 网盘（实验性，Cookie 登录）：浏览 / 搜索 / 下载 / 重命名 / 移动 / 删除 / 新建文件夹
+- 123 网盘：文件重命名 / 移动 / 删除（回收站）
 - 网盘文件浏览、搜索（支持 AI 识别内容搜索，可直接搜照片内容词）
 - 相册：自动扫描网盘内全部照片，网格浏览、全屏查看、一键下载
 - 分享链接解析（提取码自动识别）、批量转存
