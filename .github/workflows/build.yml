@@ -118,8 +118,11 @@ jobs:
 
       - name: Build unsigned iOS app (iPhone / iPad)
         run: |
+          # Flutter 3.44+ 默认强制迁移 Swift Package Manager，
+          # 本项目为 CocoaPods 模板，关闭 SPM 回到稳定构建路径
+          flutter config --no-enable-swift-package-manager
           flutter pub get
-          flutter build ios --release --no-codesign
+          flutter build ios --release --no-codesign --verbose
 
       - name: Package IPA
         shell: bash
