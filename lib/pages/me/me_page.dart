@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_miuix/miuix.dart';
 
 import '../../core/gopeed/gopeed_client.dart';
+import '../../core/gopeed/port_scanner.dart';
 import '../../core/gopeed/remote_config.dart';
 import '../../core/notify/download_notifier.dart';
 import '../../core/update_checker.dart';
@@ -237,7 +238,7 @@ class MePage extends StatelessWidget {
               title: '发送到 Gopeed',
               summary: app.gopeedRemoteEnabled
                   ? '已开启 · ${app.gopeedRemoteHost}:${app.gopeedRemotePort}'
-                  : '关闭 · 把下载直链发送到电脑 / NAS 上的 Gopeed',
+                  : '关闭 · 把下载直链发送到设备上的 Gopeed',
               icon: Icons.send_rounded,
               onClick: () => _editRemoteGopeed(context),
             ),
@@ -704,11 +705,12 @@ class _LogDialogState extends State<_LogDialog> {
   }
 }
 
-/// 「发送到 Gopeed」远程转发配置弹窗。
+/// 「发送到 Gopeed」配置弹窗。
 ///
-/// iOS 未内嵌 Gopeed 内核：开启后，网盘下载直链（含 BT 磁力）会发送到
-/// 局域网 / 远程 Gopeed 实例（电脑、NAS、安卓设备上的 Gopeed），
-/// 由它执行多线程下载；关闭时回落到本机 URLSession 后台下载器。
+/// 默认目标是设备上安装的 Gopeed iOS 版：其内核监听 127.0.0.1 的
+/// 随机端口（设置里不可修改），通过「扫描端口」自动发现；扫描命中后
+/// 下载直链经 REST API 发送过去，并附带夸克的 Cookie/Referer 请求头。
+/// 也支持填写局域网电脑 / NAS 上 Gopeed 的地址实现远程下载。
 class _RemoteGopeedDialog extends StatefulWidget {
   final RemoteGopeedConfig initial;
 
@@ -720,17 +722,19 @@ class _RemoteGopeedDialog extends StatefulWidget {
 
 class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
   late bool _enabled = widget.initial.enabled;
-  late final TextEditingController _host =
-      TextEditingController(text: widget.initial.host);
+  late final TextEditingController _host = TextEditingController(
+      text: widget.initial.host.isEmpty
+          ? RemoteGopeedConfig.localHost
+          : widget.initial.host);
   late final TextEditingController _port = TextEditingController(
-      text: widget.initial.port <= 0
-          ? '${RemoteGopeedConfig.defaultPort}'
-          : '${widget.initial.port}');
+      text: widget.initial.port > 0 ? '${widget.initial.port}' : '');
   late final TextEditingController _token =
       TextEditingController(text: widget.initial.token);
   late final TextEditingController _dir =
       TextEditingController(text: widget.initial.dir);
   bool _testing = false;
+  bool _scanning = false;
+  String _scanHint = '';
 
   @override
   void dispose() {
@@ -744,18 +748,53 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
   RemoteGopeedConfig _collect() => RemoteGopeedConfig(
         enabled: _enabled,
         host: _host.text.trim(),
-        port: int.tryParse(_port.text.trim()) ?? RemoteGopeedConfig.defaultPort,
+        port: int.tryParse(_port.text.trim()) ?? 0,
         token: _token.text.trim(),
         dir: _dir.text.trim(),
       );
 
   void _close() => MiuixOverlayPanel.hide();
 
-  /// 测试远程 Gopeed 连通性（GET /info，带令牌）
+  /// 扫描本机回环端口，自动发现 Gopeed iOS 版的 REST 端口。
+  /// 扫描前请确保 Gopeed 已启动（前台或刚切后台）。
+  Future<void> _scan() async {
+    if (_scanning) return;
+    setState(() {
+      _scanning = true;
+      _scanHint = '正在扫描，请保持 Gopeed 处于打开状态…';
+    });
+    try {
+      final port = await GopeedPortScanner.scan(
+        onProgress: (scanned, total) {
+          if (mounted && _scanning) {
+            setState(() => _scanHint = '正在扫描… $scanned/$total');
+          }
+        },
+      );
+      if (!mounted) return;
+      if (port != null) {
+        setState(() {
+          _port.text = '$port';
+          _scanHint = '已发现 Gopeed（端口 $port）';
+        });
+        MiuixToast.show('已找到 Gopeed，端口 $port');
+      } else {
+        setState(() => _scanHint = '未找到 Gopeed：请先打开 Gopeed 再扫描');
+      }
+    } finally {
+      if (mounted) setState(() => _scanning = false);
+    }
+  }
+
+  /// 测试 Gopeed 连通性（GET /info，带令牌）
   Future<void> _test() async {
     final cfg = _collect();
     if (cfg.host.isEmpty) {
       MiuixToast.show('请先填写 Gopeed 地址');
+      return;
+    }
+    if (cfg.port <= 0) {
+      MiuixToast.show('请先点「扫描端口」获取端口');
       return;
     }
     setState(() => _testing = true);
@@ -765,8 +804,7 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
       final ver = info['version']?.toString() ?? '';
       MiuixToast.show('连接成功${ver.isEmpty ? '' : ' · Gopeed $ver'}');
     } catch (e) {
-      MiuixToast.show('连接失败：请检查地址 / 令牌，以及 Gopeed 是否开启'
-          '「允许局域网连接」\n$e');
+      MiuixToast.show('连接失败：请确认 Gopeed 正在运行，且地址 / 端口正确\n$e');
     } finally {
       if (mounted) setState(() => _testing = false);
     }
@@ -774,8 +812,8 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
 
   Future<void> _save() async {
     final cfg = _collect();
-    if (cfg.enabled && cfg.host.isEmpty) {
-      MiuixToast.show('开启前请先填写 Gopeed 地址');
+    if (cfg.enabled && (cfg.host.isEmpty || cfg.port <= 0)) {
+      MiuixToast.show('开启前请先扫描到 Gopeed 端口（或手动填写地址端口）');
       return;
     }
     await AppState.I.setGopeedRemote(cfg);
@@ -803,9 +841,9 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 MiuixText(
-                  '把网盘下载直链发送到同一网络或可达网络中的 Gopeed，'
-                  '由它多线程下载。开启后本机不再下载文件，任务列表'
-                  '显示的是远程 Gopeed 的任务。',
+                  '把网盘下载直链发送到设备上安装的 Gopeed（iOS 版），'
+                  '由它多线程下载；文件保存在 Gopeed 里，需在 Gopeed 内'
+                  '查看。开启后本机不再下载文件。',
                   color: colors.onSurfaceSecondary,
                   fontSize: 12,
                 ),
@@ -813,7 +851,7 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
                 Row(
                   children: [
                     Expanded(
-                      child: MiuixText('启用远程转发',
+                      child: MiuixText('启用转发',
                           color: colors.onSurfaceContainer, fontSize: 14),
                     ),
                     MiuixSwitch(
@@ -825,17 +863,35 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
                 const SizedBox(height: 12),
                 MiuixTextField(
                   controller: _host,
-                  label: 'Gopeed 地址（如 192.168.1.100）',
+                  label: 'Gopeed 地址（本机默认 127.0.0.1）',
                   useLabelAsPlaceholder: true,
                   singleLine: true,
                 ),
                 const SizedBox(height: 10),
-                MiuixTextField(
-                  controller: _port,
-                  label: '端口（默认 ${RemoteGopeedConfig.defaultPort}）',
-                  useLabelAsPlaceholder: true,
-                  singleLine: true,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      child: MiuixTextField(
+                        controller: _port,
+                        label: '端口（Gopeed iOS 每次启动随机）',
+                        useLabelAsPlaceholder: true,
+                        singleLine: true,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    MiuixTextButton(
+                      _scanning ? '扫描中…' : '扫描端口',
+                      onPressed: _scanning ? null : _scan,
+                      insideMargin: const EdgeInsets.symmetric(vertical: 8),
+                    ),
+                  ],
                 ),
+                if (_scanHint.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  MiuixText(_scanHint,
+                      color: colors.onSurfaceSecondary, fontSize: 11),
+                ],
                 const SizedBox(height: 10),
                 MiuixTextField(
                   controller: _token,
@@ -846,7 +902,7 @@ class _RemoteGopeedDialogState extends State<_RemoteGopeedDialog> {
                 const SizedBox(height: 10),
                 MiuixTextField(
                   controller: _dir,
-                  label: '远程下载目录（留空用 Gopeed 默认目录）',
+                  label: '下载目录（留空用 Gopeed 默认目录）',
                   useLabelAsPlaceholder: true,
                   singleLine: true,
                 ),

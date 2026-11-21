@@ -1,9 +1,10 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// 远程 Gopeed 转发配置。
+/// 「发送到 Gopeed」转发配置。
 ///
-/// iOS 未内嵌 Gopeed 内核，开启后把网盘下载直链发送到局域网 / 远程
-/// Gopeed 实例（电脑、NAS、安卓手机上的 Gopeed）的多线程下载引擎。
+/// iOS 未内嵌 Gopeed 内核，开启后把网盘下载直链发送到设备上安装的
+/// Gopeed iOS 版（内核监听 127.0.0.1 的随机端口，端口由自动扫描发现），
+/// 也可以填局域网内电脑 / NAS 上 Gopeed 的地址实现远程下载。
 /// 配置同时被 [GopeedEngine]（core 层，直接读 SharedPreferences）
 /// 与设置页（AppState）共用，key 必须保持一致。
 class RemoteGopeedConfig {
@@ -13,14 +14,16 @@ class RemoteGopeedConfig {
   static const _kToken = 'gopeed_remote_token';
   static const _kDir = 'gopeed_remote_dir';
 
-  static const defaultPort = 9999;
+  /// 本机 Gopeed（iOS 版）的固定地址
+  static const localHost = '127.0.0.1';
 
   final bool enabled;
   final String host;
   final int port;
   final String token;
 
-  /// 远程下载目录（可选）。空字符串表示使用远程 Gopeed 自身的默认目录。
+  /// 下载目录（可选）。空字符串表示使用 Gopeed 自身的默认下载目录
+  /// （iOS 版 Gopeed 文件在其沙箱内，通常无需填写）。
   final String dir;
 
   const RemoteGopeedConfig({
@@ -33,18 +36,19 @@ class RemoteGopeedConfig {
 
   const RemoteGopeedConfig.disabled()
       : enabled = false,
-        host = '',
-        port = defaultPort,
+        host = localHost,
+        port = 0,
         token = '',
         dir = '';
 
-  /// 当前是否应启用远程转发：开关打开且地址已填写
-  bool get isActive => enabled && host.trim().isNotEmpty;
+  /// 当前是否可用：开关打开、地址已填写且端口已扫描到（>0）
+  bool get isActive => enabled && host.trim().isNotEmpty && port > 0;
 
-  /// REST API 根地址
-  String get baseUrl => 'http://${host.trim()}:${port <= 0 ? defaultPort : port}';
+  /// REST API 根地址（port 无效时返回空串，调用方不应使用）
+  String get baseUrl =>
+      port > 0 ? 'http://${host.trim()}:$port' : '';
 
-  /// 读取远程转发配置；未启用或地址为空时返回 null（回落本机下载器）
+  /// 读取转发配置；未启用、地址为空或端口未设置时返回 null（回落本机下载器）
   static Future<RemoteGopeedConfig?> load() async {
     final cfg = await loadRaw();
     return cfg.isActive ? cfg : null;
@@ -57,7 +61,7 @@ class RemoteGopeedConfig {
       return RemoteGopeedConfig(
         enabled: prefs.getBool(_kEnabled) ?? false,
         host: prefs.getString(_kHost)?.trim() ?? '',
-        port: prefs.getInt(_kPort) ?? defaultPort,
+        port: prefs.getInt(_kPort) ?? 0,
         token: prefs.getString(_kToken)?.trim() ?? '',
         dir: prefs.getString(_kDir)?.trim() ?? '',
       );
@@ -71,7 +75,7 @@ class RemoteGopeedConfig {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(_kEnabled, cfg.enabled);
     await prefs.setString(_kHost, cfg.host.trim());
-    await prefs.setInt(_kPort, cfg.port <= 0 ? defaultPort : cfg.port);
+    await prefs.setInt(_kPort, cfg.port);
     await prefs.setString(_kToken, cfg.token.trim());
     await prefs.setString(_kDir, cfg.dir.trim());
   }
