@@ -15,7 +15,7 @@ import '../login/netdisk123_login_page.dart';
 import '../login/xunlei_login_page.dart';
 import 'drive_page.dart';
 import 'netdisk123_accounts_page.dart';
-import 'aggregate_search_page.dart';
+import '../search/aggregate_search_page.dart';
 import 'baidu_drive_page.dart';
 import 'uc_drive_page.dart';
 import 'xunlei_drive_page.dart';
