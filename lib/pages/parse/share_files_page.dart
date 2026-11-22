@@ -12,6 +12,7 @@ import '../../widgets/empty_view.dart';
 import '../../widgets/file_icon.dart';
 import '../../widgets/file_list_anim.dart';
 import '../../widgets/miuix_common.dart';
+import 'move_target_page.dart';
 
 class ShareFilesPage extends StatefulWidget {
   final QuarkShareSession session;
@@ -188,18 +189,23 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
       _toast('请先登录');
       return;
     }
+    final toFid = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+          builder: (_) => const MoveTargetPage(movedIds: {})),
+    );
+    if (toFid == null || !mounted) return;
     setState(() => _busy = true);
     try {
       final fids = await AppState.I.quark
-          .saveShare(widget.session, _selectedFiles(), '0');
+          .saveShare(widget.session, _selectedFiles(), toFid);
       if (fids.isNotEmpty) {
         final added = await _downloadSavedFids(fids);
         if (!mounted) return;
         _toast(added > 0
             ? '已转存并加入下载队列（$added 项）'
-            : '已保存 ${_selected.length} 项到网盘根目录');
+            : '已转存 ${_selected.length} 项');
       } else {
-        _toast('已保存 ${_selected.length} 项到网盘根目录');
+        _toast('已转存 ${_selected.length} 项');
       }
       _exitSelectMode();
     } catch (e) {
@@ -466,11 +472,15 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
       _toast('请先登录');
       return;
     }
+    final toFid = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const MoveTargetPage(movedIds: {})),
+    );
+    if (toFid == null || !mounted) return;
     try {
       final fids = await AppState.I.quark
-          .saveShare(widget.session, [file], '0');
+          .saveShare(widget.session, [file], toFid);
       if (fids.isEmpty) {
-        _toast('已保存到网盘根目录');
+        _toast('已保存到所选目录');
         return;
       }
       // 转存成功：直接把转存后的文件加入下载队列
@@ -478,7 +488,7 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
       if (!mounted) return;
       _toast(added > 0
           ? '已转存并加入下载队列（$added 项）'
-          : '已保存到网盘根目录');
+          : '已保存到所选目录');
     } catch (e) {
       _toast('保存失败: $e');
     }
