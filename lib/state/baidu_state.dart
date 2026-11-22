@@ -23,6 +23,14 @@ class BaiduState extends ChangeNotifier {
   bool loading = false;
   bool _ready = false;
 
+  /// 容量信息（-1 表示未拉取/不可用）
+  int _totalSize = -1;
+  int _usedSize = -1;
+
+  int get totalSize => _totalSize;
+  int get usedSize => _usedSize;
+  bool get hasQuota => _totalSize > 0 && _usedSize >= 0;
+
   bool get isLoggedIn => client.hasLogin;
 
   BaiduState._();
@@ -35,6 +43,7 @@ class BaiduState extends ChangeNotifier {
       if (cookie == null || cookie.isEmpty) return;
       client.setCookie(cookie);
       username = await _read(_kUsername);
+      _refreshQuota();
     } catch (e) {
       AppLogger.I.e('baidu', '恢复登录态失败: $e');
     }
@@ -94,6 +103,16 @@ class BaiduState extends ChangeNotifier {
     } catch (_) {}
   }
 
+  /// 后台拉取容量（失败静默，不影响登录态）
+  Future<void> _refreshQuota() async {
+    try {
+      final (total, used) = await client.quota();
+      _totalSize = total;
+      _usedSize = used;
+      notifyListeners();
+    } catch (_) {}
+  }
+
   /// 登录：设置 Cookie 并验证，返回错误信息（null 表示成功）
   Future<String?> login(String cookie) async {
     try {
@@ -104,6 +123,7 @@ class BaiduState extends ChangeNotifier {
       username = await client.validate();
       await _saveCookie(client.cookie);
       await _saveUsername(username);
+      _refreshQuota();
       return null;
     } catch (e) {
       client.setCookie('');

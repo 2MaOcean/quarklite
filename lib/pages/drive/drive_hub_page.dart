@@ -302,6 +302,27 @@ class DriveHubPage extends StatelessWidget {
         Netdisk123State.I.usedSize,
       );
     }
+    if (UcState.I.isLoggedIn && UcState.I.user != null && UcState.I.user!.totalSize > 0) {
+      addRow(
+        const NetdiskTextBadge(text: 'UC', size: 20, radius: 6),
+        'UC 网盘',
+        formatBytes(UcState.I.user!.totalSize),
+        formatBytes(UcState.I.user!.usedSize),
+        UcState.I.user!.totalSize,
+        UcState.I.user!.usedSize,
+      );
+    }
+    if (BaiduState.I.isLoggedIn && BaiduState.I.hasQuota) {
+      addRow(
+        const NetdiskTextBadge(
+            text: '百度', color: Color(0xFF06A7FF), size: 20, radius: 6),
+        '百度网盘',
+        formatBytes(BaiduState.I.totalSize),
+        formatBytes(BaiduState.I.usedSize),
+        BaiduState.I.totalSize,
+        BaiduState.I.usedSize,
+      );
+    }
     if (rows.isEmpty) return const SizedBox.shrink();
 
     return MiuixCard(
