@@ -191,7 +191,7 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
     }
     final toFid = await Navigator.of(context).push<String>(
       MaterialPageRoute(
-          builder: (_) => const MoveTargetPage(movedIds: {})),
+          builder: (_) => const MoveTargetPage(movedFids: {})),
     );
     if (toFid == null || !mounted) return;
     setState(() => _busy = true);
@@ -473,7 +473,7 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
       return;
     }
     final toFid = await Navigator.of(context).push<String>(
-      MaterialPageRoute(builder: (_) => const MoveTargetPage(movedIds: {})),
+      MaterialPageRoute(builder: (_) => const MoveTargetPage(movedFids: {})),
     );
     if (toFid == null || !mounted) return;
     try {
