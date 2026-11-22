@@ -733,15 +733,24 @@ class QuarkClient {
   }
 
   /// 转存分享文件到自己的网盘
-  Future<void> saveShare(
+  /// 转存分享文件到自己的网盘，返回转存后顶层 fid 列表
+  /// （任务数据缺 save_as 信息时返回空列表，由调用方降级处理）
+  Future<List<String>> saveShare(
     QuarkShareSession session,
     List<QuarkShareFile> files,
     String toPdirFid,
   ) async {
     final taskId = await _saveShareRequest(session, files, toPdirFid);
-    if (taskId.isNotEmpty) {
-      await _waitTask(taskId);
+    if (taskId.isEmpty) return const [];
+    final data = await _waitTask(taskId);
+    final saveAs = data['save_as'];
+    if (saveAs is Map) {
+      final fids = saveAs['save_as_top_fids'];
+      if (fids is List) {
+        return fids.map((e) => e.toString()).where((e) => e.isNotEmpty).toList();
+      }
     }
+    return const [];
   }
 
   Future<String> _saveShareRequest(
@@ -768,7 +777,9 @@ class QuarkClient {
     return '';
   }
 
-  Future<void> _waitTask(String taskId, {int maxRetry = 120}) async {
+  /// 等待异步任务完成，返回任务完成时的 data（供提取结果字段）
+  Future<Map<String, dynamic>> _waitTask(String taskId,
+      {int maxRetry = 120}) async {
     for (var i = 0; i < maxRetry; i++) {
       await Future.delayed(const Duration(milliseconds: 1000));
       try {
@@ -780,7 +791,7 @@ class QuarkClient {
           'retry_index': i,
         });
         final status = toInt(data['status'], fallback: -1);
-        if (status == 2) return;
+        if (status == 2) return data;
         if (status == 3) throw QuarkException(-1, '转存任务失败');
       } on QuarkException {
         rethrow;

@@ -190,9 +190,17 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
     }
     setState(() => _busy = true);
     try {
-      await AppState.I.quark
+      final fids = await AppState.I.quark
           .saveShare(widget.session, _selectedFiles(), '0');
-      _toast('已保存 ${_selected.length} 项到网盘根目录');
+      if (fids.isNotEmpty) {
+        final added = await _downloadSavedFids(fids);
+        if (!mounted) return;
+        _toast(added > 0
+            ? '已转存并加入下载队列（$added 项）'
+            : '已保存 ${_selected.length} 项到网盘根目录');
+      } else {
+        _toast('已保存 ${_selected.length} 项到网盘根目录');
+      }
       _exitSelectMode();
     } catch (e) {
       _toast('保存失败: $e');
@@ -459,12 +467,43 @@ class _ShareFilesPageState extends State<ShareFilesPage> {
       return;
     }
     try {
-      await AppState.I.quark
+      final fids = await AppState.I.quark
           .saveShare(widget.session, [file], '0');
-      _toast('已保存到网盘根目录');
+      if (fids.isEmpty) {
+        _toast('已保存到网盘根目录');
+        return;
+      }
+      // 转存成功：直接把转存后的文件加入下载队列
+      final added = await _downloadSavedFids(fids);
+      if (!mounted) return;
+      _toast(added > 0
+          ? '已转存并加入下载队列（$added 项）'
+          : '已保存到网盘根目录');
     } catch (e) {
       _toast('保存失败: $e');
     }
+  }
+
+  /// 把转存后的网盘 fid 加入下载队列，返回成功数
+  Future<int> _downloadSavedFids(List<String> fids) async {
+    final (infos, cookie) =
+        await AppState.I.quark.getDownloadInfo(fids);
+    final base = await AppState.I.effectiveDownloadDir();
+    var added = 0;
+    for (final info in infos) {
+      if (info.url.isEmpty) continue;
+      final err = await DownloadService.addDirectUrl(
+        url: info.url,
+        fileName: info.fileName,
+        cookie: cookie,
+        path: base,
+      );
+      if (err == null) added++;
+    }
+    if (added > 0 && mounted) {
+      DownloadManager.I.startPolling();
+    }
+    return added;
   }
 
   /// 存储权限检查，返回 null 表示可用
