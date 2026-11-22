@@ -259,6 +259,14 @@ class MePage extends StatelessWidget {
           ] else ...[
             const MiuixHorizontalDivider(),
             arrowPref(
+                title: '夸克下载线路',
+                summary: app.quarkRoute == 'pc'
+                    ? 'PC 客户端中转（实验性）'
+                    : '网页直链（默认）',
+                icon: Icons.alt_route_rounded,
+                onClick: () => _editQuarkRoute(context, app)),
+            const MiuixHorizontalDivider(),
+            arrowPref(
                 title: '夸克下载线程',
                 summary: '单任务最大 ${app.connections} 线程',
                 icon: Icons.speed_rounded,
@@ -432,6 +440,23 @@ class MePage extends StatelessWidget {
       if (trimmed.isNotEmpty) {
         await app.setDownloadDir(trimmed);
       }
+    });
+  }
+
+  void _editQuarkRoute(BuildContext context, AppState app) {
+    final options = <(String, String)>[
+      ('direct', '网页直链（默认）'),
+      ('pc', 'PC 客户端中转（实验性）'),
+    ];
+    miuixChoiceDialog<String>(
+      context,
+      title: '夸克下载线路',
+      options: options.map((e) => e.$1).toList(),
+      current: app.quarkRoute,
+      labelOf: (v) => options.firstWhere((e) => e.$1 == v).$2,
+      hint: '直链不可用或速度异常时可尝试 PC 中转线路。',
+    ).then((v) {
+      if (v != null) app.setQuarkRoute(v);
     });
   }
 

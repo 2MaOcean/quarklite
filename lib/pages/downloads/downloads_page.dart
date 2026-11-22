@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_miuix/miuix.dart';
 
 import '../../core/gopeed/gopeed_boot.dart';
@@ -475,6 +476,13 @@ class _DownloadsPageState extends State<DownloadsPage>
         (icon: Icons.pause_rounded, text: '暂停', value: 'pause', color: null),
       if (paused)
         (icon: Icons.play_arrow_rounded, text: '继续下载', value: 'resume', color: null),
+      if (task.url.isNotEmpty)
+        (
+          icon: Icons.link_rounded,
+          text: '复制直链',
+          value: 'copyUrl',
+          color: null,
+        ),
       (icon: Icons.delete_outline_rounded, text: '删除任务', value: 'delete', color: AppColors.red),
       (icon: Icons.delete_forever_outlined, text: '删除任务和文件', value: 'deleteFile', color: AppColors.red),
     ];
@@ -482,6 +490,9 @@ class _DownloadsPageState extends State<DownloadsPage>
         .then((v) async {
       if (v == null) return;
       switch (v) {
+        case 'copyUrl':
+          await Clipboard.setData(ClipboardData(text: task.url));
+          MiuixToast.show('直链已复制（注意直链有时效性）');
         case 'pause':
           await DownloadManager.I.pauseTask(task);
         case 'resume':

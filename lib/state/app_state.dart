@@ -48,6 +48,9 @@ class AppState extends ChangeNotifier {
   /// 夸克网盘单任务最大线程数（默认 512）
   int connections = 512;
 
+  /// 夸克下载线路：'direct'（网页直链，默认）/ 'pc'（PC 客户端中转，实验性）
+  String quarkRoute = 'direct';
+
   /// 迅雷云盘单任务最大线程数（默认 64，迅雷直链单连接限速档位更高，64 线程足够拉满）
   int xunleiConnections = 64;
 
@@ -173,6 +176,7 @@ class AppState extends ChangeNotifier {
         ? savedDownloadDir
         : await _platformDefaultDownloadDir();
     connections = prefs.getInt(_kConnections) ?? 512;
+    quarkRoute = prefs.getString('quark_route') == 'pc' ? 'pc' : 'direct';
     xunleiConnections = prefs.getInt(_kXunleiConnections) ?? 64;
     netdisk123Connections = prefs.getInt(_kNetdisk123Connections) ?? 128;
     maxRunning = prefs.getInt(_kMaxRunning) ?? 4;
@@ -275,6 +279,14 @@ class AppState extends ChangeNotifier {
     closeAction = action;
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kCloseAction, action);
+    notifyListeners();
+  }
+
+  /// 设置夸克下载线路（持久化；客户端每次取直链时读取）
+  Future<void> setQuarkRoute(String route) async {
+    quarkRoute = route == 'pc' ? 'pc' : 'direct';
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('quark_route', quarkRoute);
     notifyListeners();
   }
 

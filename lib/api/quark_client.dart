@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../utils/types.dart';
 import 'quark_models.dart';
@@ -311,18 +312,37 @@ class QuarkClient {
 
   /// 获取下载直链。返回 (下载信息列表, 请求时使用的 cookie 快照)
   /// 使用桌面客户端 UA 请求并绑定签名（网页 UA 易触发限速）
+  /// 下载线路偏好持久化 key（与 AppState.quarkRoute 共用）：
+  /// 'direct' = 网页直链（默认）；'pc' = PC 客户端中转（drive-pc 域名，
+  /// 实验性，部分场景可改善直链 403/限速）
+  static const routePrefKey = 'quark_route';
+
+  static Future<bool> _routeViaPc() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getString(routePrefKey) == 'pc';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// 获取下载直链信息。
+  /// [viaPc] 为 null 时读取「下载线路」偏好：true 走 PC 客户端中转域名。
   Future<(List<QuarkDownloadInfo>, String)> getDownloadInfo(
-      List<String> fids) async {
+      List<String> fids,
+      {bool? viaPc}) async {
     final snapshot = downloadCookieSnapshot;
+    final usePc = viaPc ?? await _routeViaPc();
+    final downloadApi = usePc ? drivePcApi : driveApi;
     dynamic data;
     try {
-      data = await _post('$driveApi/file/download',
+      data = await _post('$downloadApi/file/download',
           params: {'pr': 'ucpro', 'fr': 'pc', 'uc_param_str': ''},
           data: {'fids': fids},
           userAgent: uaDesktopClient);
     } on QuarkException catch (e) {
       if (e.code == 23018) {
-        data = await _post('$driveApi/file/download',
+        data = await _post('$downloadApi/file/download',
             params: {'pr': 'ucpro', 'fr': 'pc', 'uc_param_str': ''},
             data: {'fids': fids},
             userAgent: uaDesktopClient);

@@ -59,6 +59,9 @@ class GopeedTask {
   final int speed;
   final int createdAt;
 
+  /// 任务原始下载 URL（meta.res.url），用于「复制直链」
+  final String url;
+
   GopeedTask({
     required this.id,
     required this.name,
@@ -67,6 +70,7 @@ class GopeedTask {
     required this.downloaded,
     required this.speed,
     required this.createdAt,
+    this.url = '',
   });
 
   double get progress =>
@@ -85,6 +89,7 @@ class GopeedTask {
       downloaded: toInt(progress['downloaded']),
       speed: toInt(progress['speed']),
       createdAt: toInt(json['createdAt']),
+      url: res['url']?.toString() ?? '',
     );
   }
 }
