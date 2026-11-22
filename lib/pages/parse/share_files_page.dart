@@ -12,7 +12,7 @@ import '../../widgets/empty_view.dart';
 import '../../widgets/file_icon.dart';
 import '../../widgets/file_list_anim.dart';
 import '../../widgets/miuix_common.dart';
-import 'move_target_page.dart';
+import '../drive/move_target_page.dart';
 
 class ShareFilesPage extends StatefulWidget {
   final QuarkShareSession session;
