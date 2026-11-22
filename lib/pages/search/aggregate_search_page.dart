@@ -256,7 +256,10 @@ class _AggregateSearchPageState extends State<AggregateSearchPage> {
                               height: 16,
                               child: MiuixCircularProgressIndicator(
                                   colors: MiuixProgressIndicatorColors(
-                                      foregroundColor: Colors.white)),
+                                    foregroundColor: Colors.white,
+                                    disabledForegroundColor: Colors.white,
+                                    backgroundColor: Colors.white24,
+                                  )),
                             )
                           : const MiuixText('搜索',
                               color: Colors.white, fontSize: 14),
