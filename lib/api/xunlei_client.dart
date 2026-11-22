@@ -209,6 +209,43 @@ class XunleiClient {
       'protocolVersion/301 platformversion/10 sdkVersion/$sdkVersion '
       'Oauth2Client/0.9 (Linux 4_9_337-perf-sn-uotan-gd9d488809c3d) (JAVA 0)';
 
+  /// 重命名文件/文件夹
+  Future<void> renameFile(String id, String newName) async {
+    await _patch('$_driveBase/files/$id', {'name': newName});
+  }
+
+  /// 删除（移入回收站）
+  Future<void> trashFiles(List<String> ids) async {
+    await _post('$_driveBase/files/batch_trash', {
+      'ids': ids,
+    });
+  }
+
+  /// 移动到目标目录
+  Future<void> moveFiles(List<String> ids, String toParentId) async {
+    await _post('$_driveBase/files/batch_move', {
+      'ids': ids,
+      'to': toParentId,
+    });
+  }
+
+  /// 新建文件夹
+  Future<void> createFolder(String parentId, String name) async {
+    await _post('$_driveBase/files', {
+      'parent_id': parentId,
+      'name': name,
+      'file_type': 0,
+    });
+  }
+
+  Future<Map<String, dynamic>> _patch(String url, Object body) async {
+    var resp = await _dio.patch<dynamic>(url,
+        data: body,
+        options: Options(
+            headers: _authHeaders(), validateStatus: (_) => true));
+    return _parse(resp);
+  }
+
   Map<String, dynamic> _authHeaders() => {
         'user-agent': buildUserAgent(deviceId),
         'accept': 'application/json;charset=UTF-8',

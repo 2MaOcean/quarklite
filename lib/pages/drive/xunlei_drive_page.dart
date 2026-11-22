@@ -6,6 +6,7 @@ import '../../state/app_state.dart';
 import '../../state/download_manager.dart';
 import '../../state/download_service.dart';
 import '../../state/xunlei_state.dart';
+import 'xunlei_move_target_page.dart';
 import '../../theme/app_theme.dart';
 import '../../utils/app_logger.dart';
 import '../../utils/format.dart';
@@ -303,6 +304,16 @@ class _XunleiDrivePageState extends State<XunleiDrivePage> {
             MiuixText('已选 $count 项',
                 fontSize: 14, color: colors.onSurfaceContainer),
             const Spacer(),
+            MiuixTextButton(
+              '移动',
+              onPressed: count == 0 ? null : () => _moveSelected(_selected.toSet()),
+            ),
+            const SizedBox(width: 8),
+            MiuixTextButton(
+              '删除',
+              onPressed: count == 0 ? null : () => _trashSelected(_selected.toSet()),
+            ),
+            const SizedBox(width: 8),
             MiuixButton(
               onPressed: _downloading || count == 0 ? null : _batchDownload,
               colors: MiuixButtonColors(
@@ -421,15 +432,90 @@ class _XunleiDrivePageState extends State<XunleiDrivePage> {
       context,
       title: file.name,
       actions: [
-        (icon: Icons.download_rounded, text: '立即下载', value: 'download', color: null),
+        if (!file.isDir)
+          (icon: Icons.download_rounded, text: '立即下载', value: 'download', color: null),
+        (icon: Icons.drive_file_rename_outline_rounded, text: '重命名', value: 'rename', color: null),
+        (icon: Icons.drive_file_move_rounded, text: '移动到…', value: 'move', color: null),
+        (icon: Icons.delete_outline_rounded, text: '删除', value: 'trash', color: AppColors.red),
       ],
     ).then((v) {
       if (v == null) return;
       switch (v) {
         case 'download':
           _downloadFile(file);
+        case 'rename':
+          _renameFile(file);
+        case 'move':
+          _moveSelected({file.id});
+        case 'trash':
+          _trashSelected({file.id});
       }
     });
+  }
+
+  // ---------------- 文件管理操作（重命名 / 移动 / 删除） ----------------
+
+  Future<void> _renameFile(XunleiFile file) async {
+    final name = await miuixInputDialog(
+      context,
+      title: '重命名',
+      hint: '新名称',
+      initialText: file.name,
+      confirmText: '保存',
+    );
+    final trimmed = name?.trim() ?? '';
+    if (trimmed.isEmpty || trimmed == file.name) return;
+    try {
+      await _client.renameFile(file.id, trimmed);
+      _toast('已重命名');
+      _load();
+    } catch (e) {
+      _toast('重命名失败: $e');
+    }
+  }
+
+  Future<void> _moveSelected(Set<String> ids) async {
+    if (ids.isEmpty) return;
+    final toId = await Navigator.of(context).push<String>(
+      MaterialPageRoute(
+        builder: (_) => XunleiMoveTargetPage(
+          movedIds: ids,
+          listDirs: (parentId) => _client.listFiles(parentId),
+        ),
+      ),
+    );
+    if (toId == null || !mounted) return;
+    try {
+      await _client.moveFiles(ids.toList(), toId);
+      _toast('已移动');
+      _load();
+    } catch (e) {
+      _toast('移动失败: $e');
+    }
+  }
+
+  Future<void> _trashSelected(Set<String> ids) async {
+    final ok = await confirmMiuix(
+      context,
+      title: '删除 ${ids.length} 项',
+      content: '删除后将移入迅雷云盘回收站，确定吗？',
+      confirmText: '删除',
+      danger: true,
+    );
+    if (ok != true) return;
+    try {
+      await _client.trashFiles(ids.toList());
+      _toast('已删除');
+      _load();
+      if (mounted) {
+        setState(() {
+          _selectMode = false;
+          _selected.clear();
+        });
+      }
+    } catch (e) {
+      _toast('删除失败: $e');
+    }
   }
 
   Future<void> _downloadFile(XunleiFile file) async {
