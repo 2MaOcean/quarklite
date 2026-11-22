@@ -1,19 +1,27 @@
+import 'dart:io';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../widgets/miuix_common.dart';
+import '../state/download_service.dart';
 
 class AppUpdate {
   final String version;
   final Uri releaseUrl;
   final String notes;
 
+  /// Release 附件里的通用 APK 下载地址（Android 一键更新用）
+  final Uri? apkUrl;
+
   const AppUpdate({
     required this.version,
     required this.releaseUrl,
     required this.notes,
+    this.apkUrl,
   });
 }
 
@@ -21,8 +29,9 @@ class UpdateChecker {
   UpdateChecker._();
 
   static const currentVersion = '1.6.0';
+  // 注意：指向本仓库（fork 后必须同步修改，否则会提示更新到上游版本）
   static const _latestReleaseUrl =
-      'https://api.github.com/repos/ZXEB/quarklite/releases/latest';
+      'https://api.github.com/repos/2MaOcean/quarklite/releases/latest';
   static final Dio _dio = Dio(BaseOptions(
     connectTimeout: const Duration(seconds: 8),
     receiveTimeout: const Duration(seconds: 8),
@@ -42,10 +51,28 @@ class UpdateChecker {
       final url = Uri.tryParse(data['html_url']?.toString() ?? '');
       if (version == null || url == null || !url.hasScheme) return null;
       if (!_isNewer(version, currentVersion)) return null;
+      // 从附件里挑 APK：优先通用包，其次 arm64
+      Uri? apkUrl;
+      final assets = data['assets'];
+      if (assets is List) {
+        String? generic, arm64;
+        for (final a in assets.whereType<Map>()) {
+          final name = a['name']?.toString() ?? '';
+          final dl = Uri.tryParse(a['browser_download_url']?.toString() ?? '');
+          if (dl == null || !dl.hasScheme) continue;
+          if (name == 'app-release.apk') generic = dl.toString();
+          if (name.contains('arm64-v8a') && name.endsWith('.apk')) {
+            arm64 = dl.toString();
+          }
+        }
+        final picked = generic ?? arm64;
+        if (picked != null) apkUrl = Uri.tryParse(picked);
+      }
       return AppUpdate(
         version: version,
         releaseUrl: url,
         notes: data['body']?.toString().trim() ?? '',
+        apkUrl: apkUrl,
       );
     } catch (_) {
       return null;
@@ -66,12 +93,19 @@ class UpdateChecker {
     }
     if (!manual && await _isSkipped(update.version)) return;
     final notes = update.notes.isEmpty ? '' : '\n\n${update.notes}';
+    final options = <String>[
+      if (!kIsWeb && Platform.isAndroid && update.apkUrl != null) 'download',
+      'open',
+      'later',
+      'skip',
+    ];
     final choice = await miuixChoiceDialog<String>(
       context,
       title: '发现新版本 ${update.version}',
-      options: const ['open', 'later', 'skip'],
+      options: options,
       current: 'later',
       labelOf: (value) => switch (value) {
+        'download' => '用 Gopeed 下载 APK',
         'open' => '打开 GitHub 下载页',
         'skip' => '此次更新不再提醒',
         _ => '稍后提醒',
@@ -80,8 +114,21 @@ class UpdateChecker {
     );
     if (choice == 'skip') {
       await _saveSkipped(update.version);
-    } else if (choice == 'open') {
+      return;
+    }
+    if (choice == 'open') {
       await launchUrl(update.releaseUrl, mode: LaunchMode.externalApplication);
+      return;
+    }
+    if (choice == 'download') {
+      final apk = update.apkUrl;
+      if (apk == null) return;
+      final err = await DownloadService.addDirectUrl(
+        url: apk.toString(),
+        fileName: 'quarklite-${update.version}.apk',
+        cookie: '',
+      );
+      MiuixToast.show(err ?? '已加入下载队列，完成后到下载页安装');
     }
   }
 

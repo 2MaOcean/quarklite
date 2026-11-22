@@ -5,6 +5,7 @@ import '../../state/app_state.dart';
 import '../../state/netdisk123_state.dart';
 import '../../state/baidu_state.dart';
 import '../../state/uc_state.dart';
+import '../../utils/format.dart';
 import '../../state/xunlei_state.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/miuix_common.dart';
@@ -57,6 +58,8 @@ class DriveHubPage extends StatelessWidget {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
+                    _buildCapacitySummary(context),
+                    const SizedBox(height: 14),
                     _buildQuarkCard(context),
                     const SizedBox(height: 14),
                     _buildXunleiCard(context),
@@ -215,6 +218,108 @@ class DriveHubPage extends StatelessWidget {
         Navigator.of(context).push(
             MaterialPageRoute(builder: (_) => const UcDrivePage()));
       },
+    );
+  }
+}
+
+  /// 聚合容量卡：展示已登录网盘的空间使用情况（有数据才显示行）
+  Widget _buildCapacitySummary(BuildContext context) {
+    final colors = MiuixTheme.of(context).colors;
+    final rows = <Widget>[];
+    void addRow(
+        Widget logo, String name, String totalText, String usedText, int total, int used) {
+      if (total <= 0) return;
+      rows.add(Padding(
+        padding: const EdgeInsets.symmetric(vertical: 6),
+        child: Row(
+          children: [
+            logo,
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      MiuixText(name,
+                          fontSize: 12,
+                          color: colors.onSurfaceContainer),
+                      const Spacer(),
+                      MiuixText('$usedText / $totalText',
+                          fontSize: 11,
+                          color: colors.onSurfaceSecondary),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(3),
+                    child: MiuixLinearProgressIndicator(
+                      progress: used / total,
+                      height: 4,
+                      colors: MiuixProgressIndicatorColors(
+                        foregroundColor: colors.primary,
+                        disabledForegroundColor: colors.primary,
+                        backgroundColor: colors.surfaceContainer,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ));
+    }
+
+    final app = AppState.I;
+    if (app.isLoggedIn && app.user != null && app.user!.totalSize > 0) {
+      addRow(
+        const NetdiskLogo(provider: NetdiskProvider.quark, size: 20, radius: 6),
+        '夸克网盘',
+        formatBytes(app.user!.totalSize),
+        formatBytes(app.user!.usedSize),
+        app.user!.totalSize,
+        app.user!.usedSize,
+      );
+    }
+    if (XunleiState.I.isLoggedIn && XunleiState.I.hasQuota) {
+      addRow(
+        const NetdiskLogo(provider: NetdiskProvider.xunlei, size: 20, radius: 6),
+        '迅雷云盘',
+        formatBytes(XunleiState.I.totalSize),
+        formatBytes(XunleiState.I.usedSize),
+        XunleiState.I.totalSize,
+        XunleiState.I.usedSize,
+      );
+    }
+    if (Netdisk123State.I.isLoggedIn && Netdisk123State.I.hasQuota) {
+      addRow(
+        const NetdiskLogo(
+            provider: NetdiskProvider.netdisk123, size: 20, radius: 6),
+        '123 网盘',
+        formatBytes(Netdisk123State.I.totalSize),
+        formatBytes(Netdisk123State.I.usedSize),
+        Netdisk123State.I.totalSize,
+        Netdisk123State.I.usedSize,
+      );
+    }
+    if (rows.isEmpty) return const SizedBox.shrink();
+
+    return MiuixCard(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            MiuixText('空间总览',
+                fontSize: 13,
+                fontWeight: FontWeight.w700,
+                color: colors.onSurfaceContainer),
+            const SizedBox(height: 4),
+            ...rows,
+          ],
+        ),
+      ),
     );
   }
 }
