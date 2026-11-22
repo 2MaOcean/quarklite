@@ -220,7 +220,6 @@ class DriveHubPage extends StatelessWidget {
       },
     );
   }
-}
 
   /// 聚合容量卡：展示已登录网盘的空间使用情况（有数据才显示行）
   Widget _buildCapacitySummary(BuildContext context) {

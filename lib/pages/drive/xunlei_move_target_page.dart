@@ -6,7 +6,7 @@ import '../../widgets/empty_view.dart';
 import '../../widgets/file_icon.dart';
 import '../../widgets/miuix_common.dart';
 
-/// 123 网盘移动目标选择页：只展示文件夹，禁止进入被移动的文件夹内部，
+/// 迅雷云盘移动目标选择页：只展示文件夹，禁止进入被移动的文件夹内部，
 /// 底部固定「移动到此处」按钮返回目标目录 id（根目录 id 为 '0'）。
 class XunleiMoveTargetPage extends StatefulWidget {
   /// 被移动的文件 id 集合（含文件夹本身），用于禁止移入自身
